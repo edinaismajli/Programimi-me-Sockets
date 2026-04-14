@@ -59,6 +59,28 @@ int main(){
     }
 
 
+
+while (true) {
+    cout << "\n>";
+    getline(cin,message);
+
+    if (message ==" /quit") {
+        cout << "Po dilni nga klienti...\n";
+        break;
+    }
+
+    send(clientSocket, message.c_str(), message.size(), 0);
+
+    ZeroMemory(buffer, BUFFER_SIZE);
+    int bytesRecived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+
+    if(bytesRecived >0) {
+        cout << "Server:" << string(buffer, 0, bytesRecived) << endl;
+    } else {
+        cout<< "Serveri nuk ktheu pergjigjje ose linja u mbyll.\n";
+        break;
+    }
+}
   
 
 
