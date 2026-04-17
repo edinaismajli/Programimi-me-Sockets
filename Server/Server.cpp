@@ -1,7 +1,17 @@
 int main()
 {
     WSADATA wsaData;
+    struct addrinfo hints;
+    struct addrinfo* server = NULL;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+    ZeroMemory(&hints, sizeof(hints));
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = IPPROTO_TCP;
+        hints.ai_flags = AI_PASSIVE;
+    
+    
 
     SOCKET incoming = accept(server_socket, NULL, NULL);
 
