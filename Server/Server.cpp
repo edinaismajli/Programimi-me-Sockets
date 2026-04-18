@@ -59,7 +59,23 @@ int main()
              << server_socket << endl;
     }
 
-    // Client storage
+    // Bind
+    cout << "Binding socket to port " << DEFAULT_PORT << "..." << endl;
+
+    int bindResult = bind(server_socket, server->ai_addr, (int)server->ai_addrlen);
+
+    if (bindResult == SOCKET_ERROR)
+    {
+        cerr << "Error: Bind failed. Code: "
+             << WSAGetLastError() << endl;
+
+        closesocket(server_socket);
+        WSACleanup();
+        return -1;
+    }
+
+    cout << "Bind successful!" << endl;
+
     vector<client_type> client(MAX_CLIENTS);
     thread my_thread[MAX_CLIENTS];
     int temp_id = 0;
