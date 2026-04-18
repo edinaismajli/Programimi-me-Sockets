@@ -48,4 +48,27 @@ int main(){
       return 1;
    }
 
-}
+   char buf[4096];
+   string userInput;
+
+
+   do{
+    cout<<"Send message to server:";
+    getline(cin,userInput);
+
+
+    if(userInput.size()>0){
+        int sendResult=send(sock,userInput.c_str(),(int)userInput.size()+1.0);
+        if(sendResult != SOCKET_ERROR){
+            ZeroMemory(buf,4096);
+            int bytesReceived=recv(sock,buf,4096,0);
+            if(vytesReceived>0){
+                cout<<"SERVER>"<<string(buf,0,bytesReceived)<<endl;
+            }
+        }
+
+        }
+    }
+    while(userInput.size()>0);
+   }
+
