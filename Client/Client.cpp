@@ -27,9 +27,9 @@ int main(){
 
  SOCKET sock=socket(AF_INET,SOCK_STREAM,0);
  if(sock==INVALID_SOCKET){
-    cerr<<"Cant create Socket,Err#"<<WSAGetError<<endl;
+    cerr<<"Cant create Socket,Err#"<<WSAGetlastError()<<endl;
     WSACleanup();
-    return;
+    return 1;
  }
     
 
