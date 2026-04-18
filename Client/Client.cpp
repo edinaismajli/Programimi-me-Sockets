@@ -1,6 +1,6 @@
 #include <iostream>
 #include <Ws2tcpip.h>
-#include <String>
+#include <string>
 #include <stdlib.h>
 #include <string.h>
 
@@ -25,7 +25,12 @@ int main(){
         return 1;
     }
 
- 
+ SOCKET sock=socket(AF_INET,SOCK_STREAM,0);
+ if(sock==INVALID_SOCKET){
+    cerr<<"Cant create Socket,Err#"<<WSAGetError<<endl;
+    WSACleanup();
+    return;
+ }
     
 
 
