@@ -18,8 +18,16 @@ int main(){
     WORD ver = MAKEWORD(2, 2);
     int WSResult = WSAStartup(ver, &data);
 
+
+    if(WSResult !=0)
+    {
+        cerr << "Can't start Winsock, Err #" << WSResult << endl;
+        return 1;
+    }
+
  
- 
+    
+
 
 
 }
