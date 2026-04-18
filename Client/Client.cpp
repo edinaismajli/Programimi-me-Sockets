@@ -33,6 +33,19 @@ int main(){
  }
     
 
+ sockaddr_in hint={};
+   hint.sin_family=AF_INET;
+   hint.sin_port=htons(port);
+  hint.sin_addr.S_un.S_addr=inet_addr(ipAdress.c_str());
 
+
+  int connResult=connect(sock,(sockaddr*)&hint,sizeof(hint));
+  if(connResult==SOCKET_ERROR){
+
+      cerr<<"Can't connect to server,Err#"<<WSAGetLastError()<<endl;
+      closesocket(sock);
+      WSACleanup();
+      return 1;
+   }
 
 }
