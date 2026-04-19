@@ -249,6 +249,7 @@ void handleClient(client_type client)
         {
             lock_guard<mutex> lock(clientsMutex);
             clients[client.id].lastActivity = time(0);
+            messageCount++;
         }
 
         string input(buffer, bytes);
@@ -356,11 +357,7 @@ void handleClient(client_type client)
         cout << msg << endl;
         logMessage(msg);
 
-        {
-            lock_guard<mutex> lock(clientsMutex);
-            messageCount++;
-        }
-
+       
         broadcast(msg, client.id);
         sendResponse(client.socket, "Message received");
     }
@@ -546,8 +543,6 @@ int main()
             clients[id].role = "";
         }
 
-        string welcome = "Connected. Your client ID is " + to_string(id);
-        send(incoming, welcome.c_str(), (int)welcome.size(), 0);
 
         thread(handleClient, clients[id]).detach();
     }
