@@ -1,285 +1,204 @@
 #include <iostream>
-#include <ws2tcpip.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #include <string>
 #include <fstream>
+#include <sstream>
 
 #pragma comment(lib, "Ws2_32.lib")
 
 using namespace std;
 
-const string SERVER_IP="127.0.0.1";
-const int SERVER_PORT=9000;
-const int BUFFER_SIZE=4096;
+const string SERVER_IP = "127.0.0.1";
+const int PORT = 9000;
+const int BUFFER_SIZE = 4096;
 
+// ================= RECEIVE MESSAGE =================
+string receiveAll(SOCKET sock) {
+    char buffer[BUFFER_SIZE];
+    string result;
 
-bool isAdminCommand(const string& command){
-    return command == "/list" ||
-           command.rfind("/read ", 0) == 0 ||
-           command.rfind("/upload ", 0) == 0 ||
-           command.rfind("/download ", 0) == 0 ||
-           command.rfind("/delete ", 0) == 0 ||
-           command.rfind("/search ", 0) == 0 ||
-           command.rfind("/info ", 0) == 0;
+    while (true) {
+        int bytes = recv(sock, buffer, BUFFER_SIZE - 1, 0);
+        if (bytes <= 0) break;
+
+        result.append(buffer, bytes);
+
+        if (result.find("\nEND\n") != string::npos) {
+            break;
+        }
+    }
+
+    size_t pos = result.find("\nEND\n");
+    if (pos != string::npos) {
+        result = result.substr(0, pos);
+    }
+
+    return result;
 }
 
-void printMenu(const string& role){
-     cout << "\n========== MENU ==========\n";
-    cout << "Roli: " << role << endl;
-    cout << "/help                    - shfaq komandat\n";
-    cout << "/exit                    - mbyll klientin\n";
-    cout << "Mesazh normal            - dergo tekst te serveri\n";
-
-  if(role == "admin"){
-     cout << "/list                    - liston file-at ne server\n";
-        cout << "/read <filename>         - lexon file nga serveri\n";
-        cout << "/upload <filename>       - dergon file ne server\n";
-        cout << "/download <filename>     - shkarkon file nga serveri\n";
-        cout << "/delete <filename>       - fshin file ne server\n";
-        cout << "/search <keyword>        - kerkon file ne server\n";
-        cout << "/info <filename>         - merr info per file\n";
-  }
-  else{
-    cout<<"Ky klient ka vetem read() permission.\n";
-  }
-  cout<<"==================================\n\n";
+// ================= SEND MESSAGE =================
+bool sendMessage(SOCKET sock, const string& message) {
+    string msgWithEnd = message + "\nEND\n";
+    int sent = send(sock, msgWithEnd.c_str(), (int)msgWithEnd.size(), 0);
+    return sent != SOCKET_ERROR;
 }
 
-bool sendText(SOCKET sock,const string& text){
-    int sendResult=send(sock,text.c_str(),(int)text.size(),0);
-    return sendResult != SOCKET_ERROR;
-}
+// ================= UPLOAD FILE =================
+void uploadFile(SOCKET sock, const string& filename) {
+    ifstream file(filename, ios::binary);
 
-bool receiveText(SOCKET sock,string& response){
-    char buf[BUFFER_SIZE];
-    ZeroMemory(buf,BUFFER_SIZE);
-
-    int bytesReceived =recv(sock,buf,BUFFER_SIZE,0);
-
-    if(bytesReceived>0){
-        response=string(buf,0,bytesReceived);
-        return true;
+    if (!file.is_open()) {
+        cout << "Error: File '" << filename << "' not found!\n";
+        return;
     }
-    else if(bytesReceived==0){
-        response="Serveri e mbylli lidhjen.";
-        return false;
-    }
-    else{
-        response ="Gabim ne recv(),Err #"+to_string(WSAGetLastError());
-        return false;
-    }
-}
 
-bool uploadFile(SOCKET sock,const string& filename){
-
-    ifstream file(filename,ios::binary);
-    if(!file.is_open()){
-        cerr<<"Nuk u hap file-i:"<<filename<<endl;
-        return false;
-    }
     string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-   string request = "/upload " + filename + "\n" + content;
+    file.close();
 
-    if(!sendText(sock,request)){
-        cerr<<"Gabim gjate upload-it,Err #"<<WSAGetLastError()<<endl;
-        return false;
+    string request = "/upload " + filename + "\n" + content;
+    sendMessage(sock, request);
+
+    string response = receiveAll(sock);
+    cout << response << endl;
+}
+
+// ================= DOWNLOAD FILE =================
+void downloadFile(SOCKET sock, const string& filename) {
+    string request = "/download " + filename;
+    sendMessage(sock, request);
+
+    string content = receiveAll(sock);
+
+    if (content.find("File not found") != string::npos) {
+        cout << content << endl;
+        return;
     }
-    return true;
+
+    ofstream file(filename, ios::binary);
+    file << content;
+    file.close();
+
+    cout << "Downloaded: " << filename << " (" << content.size() << " bytes)\n";
 }
 
-bool saveDownloadedFile(const string& filename,const string& content){
-    ofstream outFile(filename,ios::binary);
-    if(!outFile.is_open())
-    return false;
-
-    outFile.write(content.c_str(),content.size());
-    outFile.close();
-    return true;
+// ================= SHOW MENU =================
+void showAdminMenu() {
+    cout << "\n========== ADMIN COMMANDS ==========\n";
+    cout << "/list                 - List all files\n";
+    cout << "/read <filename>      - Read file content\n";
+    cout << "/upload <filename>    - Upload file to server\n";
+    cout << "/download <filename>  - Download file from server\n";
+    cout << "/delete <filename>    - Delete file from server\n";
+    cout << "/search <keyword>     - Search files by keyword\n";
+    cout << "/info <filename>      - Get file information\n";
+    cout << "/exit                 - Disconnect\n";
+    cout << "====================================\n";
 }
 
+void showUserMenu() {
+    cout << "\n========== USER COMMANDS ==========\n";
+    cout << "/list                 - List all files\n";
+    cout << "/read <filename>      - Read file content\n";
+    cout << "/download <filename>  - Download file from server\n";
+    cout << "/exit                 - Disconnect\n";
+    cout << "===================================\n";
+}
 
-int main(){
-
-   string ipAdress= SERVER_IP;
-   int port=SERVER_PORT;
-
-   WSADATA data;
-    WORD ver = MAKEWORD(2, 2);
-    int WSResult = WSAStartup(ver, &data);
-
-
-    if(WSResult !=0)
-    {
-        cerr << "Can't start Winsock, Err #" << WSResult << endl;
+// ================= MAIN =================
+int main() {
+    // Initialize Winsock
+    WSADATA wsData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsData) != 0) {
+        cout << "WSAStartup failed!\n";
         return 1;
     }
 
- SOCKET sock=socket(AF_INET,SOCK_STREAM,0);
- if(sock==INVALID_SOCKET){
-    cerr<<"Cant create Socket,Err#"<<WSAGetLastError()<<endl;
-    WSACleanup();
-    return 1;
- }
-
-cout<<"Zgjedh rolin e klientit (admin/user): ";
-cout<<"1. Admin\n";
-cout<<"2. read-only user\n";
-cout<<"Zgjedhja: ";
-
-int choice;
-cin>>choice;
-cin.ignore();
-
-string role;
-if(choice==1)
-    role="admin";
-    else
-    role="read-only";
-
-    DWORD timeout;
-    if(role=="admin")
-        timeout=3000;
-    else
-        timeout=7000;
-
-    
-setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,sizeof(timeout));
-
-
- sockaddr_in hint={};
-   hint.sin_family=AF_INET;
-   hint.sin_port=htons(port);
-
-hint.sin_addr.S_un.S_addr = inet_addr(ipAdress.c_str());
-
-if (hint.sin_addr.S_un.S_addr == INADDR_NONE)
-{
-    cerr << "IP adresa nuk eshte valide!\n";
-    closesocket(sock);
-    WSACleanup();
-    return 1;
-}
-
-  int connResult=connect(sock,(sockaddr*)&hint,sizeof(hint));
-  if(connResult==SOCKET_ERROR){
-
-      cerr<<"Can't connect to server,Err#"<<WSAGetLastError()<<endl;
-      closesocket(sock);
-      WSACleanup();
-      return 1;
-   }
- 
-   cout<< "Connected to server:" << ipAdress<< ":" << port << endl;
-   string introRole = "/role " + role;
-sendText(sock, introRole);
-
-string introResponse;
-if (receiveText(sock, introResponse))
-{
-    cout << "SERVER> " << introResponse << endl;
-}
-   printMenu(role);
-
-
-
-
-
-
-
-
-   string userInput;
-
-   while (true)
-   {
-    cout<< ">";
-    getline(cin,userInput);
-
-    if(userInput.empty()){
-        cout<< "Shkruaj nje messazh ose komandë!\n";
-        continue;
+    // Create socket
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) {
+        cout << "Socket creation failed!\n";
+        WSACleanup();
+        return 1;
     }
 
-    if(userInput=="/exit"){
-       cout << "Klienti po mbyllet...\n";
-        break;;
+    // Server address
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(PORT);
+    inet_pton(AF_INET, SERVER_IP.c_str(), &serverAddr.sin_addr);
+
+    // Connect to server
+    cout << "Connecting to server " << SERVER_IP << ":" << PORT << "...\n";
+    if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        cout << "Connection failed! Make sure server is running.\n";
+        closesocket(sock);
+        WSACleanup();
+        return 1;
     }
-    if(userInput=="/help"){
-         printMenu(role);
-        continue;
-   }
 
-   if (role!="admin" && isAdminCommand(userInput)){
-        cout<<"Gabim: ky klient ka vetem read() permission.\n";
-        continue;
-   }
+    cout << "Connected to server successfully!\n\n";
 
-   
-   if (role == "admin" && userInput.rfind("/upload ", 0) == 0)
-        {
-            string filename = userInput.substr(8);
+    // Select role
+    cout << "Select your role:\n";
+    cout << "1. Admin (Full access - faster responses)\n";
+    cout << "2. Regular User (Read only)\n";
+    cout << "Choice: ";
 
-            if (filename.empty())
-            {
-                cout << "Perdorimi: /upload <filename>\n";
-                continue;
-            }
+    int choice;
+    cin >> choice;
+    cin.ignore();
 
-            if (!uploadFile(sock, filename))
-                continue;
+    string role = (choice == 1) ? "admin" : "user";
 
-            string response;
-            if (receiveText(sock, response))
-                cout << "SERVER> " << response << endl;
-            else
-                cout << response << endl;
+    // Send role to server
+    sendMessage(sock, "/role " + role);
+    string roleResponse = receiveAll(sock);
+    cout << roleResponse << endl;
 
-            continue;
-        }
+    // Show appropriate menu
+    if (role == "admin") {
+        showAdminMenu();
+    }
+    else {
+        showUserMenu();
+    }
 
-        if(!sendText(sock,userInput)){
-            cerr<<"Send failed,Err #"<<WSAGetLastError()<<endl;
-            break;}
+    cout << "\nEnter commands (type /exit to quit):\n";
 
-        string response;
-        if(!receiveText(sock,response)){  
-            cout<<response<<endl;
+    // Command loop
+    string command;
+    while (true) {
+        cout << "\n> ";
+        getline(cin, command);
+
+        if (command == "/exit") {
+            cout << "Disconnecting...\n";
             break;
         }
 
-        if (role == "admin" && userInput.rfind("/download ", 0) == 0)
-        {
-            string filename = userInput.substr(10);
-
-            if (!filename.empty())
-            {
-                if (response == "File not found" || response == "Permission denied")
-{
-    cout << "SERVER> " << response << endl;
-}
-else
-{
-    if (saveDownloadedFile(filename, response))
-        cout << "File u ruajt lokalish si: " << filename << endl;
-    else
-        cout << "Nuk u ruajt file-i. Permbajtja:\n" << response << endl;
-}
-            }
-            else
-            {
-                cout << "Perdorimi: /download <filename>\n";
-            }
+        // Handle commands
+        if (command.rfind("/upload ", 0) == 0) {
+            string filename = command.substr(8);
+            uploadFile(sock, filename);
         }
-        else
-        {
-            cout << "SERVER> " << response << endl;
+        else if (command.rfind("/download ", 0) == 0) {
+            string filename = command.substr(10);
+            downloadFile(sock, filename);
+        }
+        else {
+            // Send command to server
+            sendMessage(sock, command);
+            string response = receiveAll(sock);
+            cout << response << endl;
         }
     }
 
-    
-closesocket(sock);
+    // Cleanup
+    closesocket(sock);
     WSACleanup();
+
+    cout << "Disconnected. Goodbye!\n";
+
     return 0;
 }
-
-
-  
