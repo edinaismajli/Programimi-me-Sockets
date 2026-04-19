@@ -1,6 +1,6 @@
 #include <iostream>
-#include<ws2tcpip.h>
-#include <Ws2tcpip.h>
+#include <ws2tcpip.h>
+#include <winsock2.h>
 #include <string>
 #include <fstream>
 
@@ -9,7 +9,7 @@
 using namespace std;
 
 const string SERVER_IP="127.0.0.1";
-const int SERVER_PORT=8080;
+const int SERVER_PORT=9000;
 const int BUFFER_SIZE=4096;
 
 
@@ -78,7 +78,7 @@ bool uploadFile(SOCKET sock,const string& filename){
         return false;
     }
     string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-    string request="/upload"+filename+ "\n" + content;
+   string request = "/upload " + filename + "\n" + content;
 
     if(!sendText(sock,request)){
         cerr<<"Gabim gjate upload-it,Err #"<<WSAGetLastError()<<endl;
@@ -122,7 +122,7 @@ int main(){
  }
 
 cout<<"Zgjedh rolin e klientit (admin/user): ";
-cout<<"1. Admin\"n";
+cout<<"1. Admin\n";
 cout<<"2. read-only user\n";
 cout<<"Zgjedhja: ";
 
@@ -134,7 +134,7 @@ string role;
 if(choice==1)
     role="admin";
     else
-    role="read-only user";
+    role="read-only";
 
     DWORD timeout;
     if(role=="admin")
@@ -238,10 +238,17 @@ if (hint.sin_addr.S_un.S_addr == INADDR_NONE)
 
             if (!filename.empty())
             {
-                if (saveDownloadedFile(filename, response))
-                    cout << "File u ruajt lokalish si: " << filename << endl;
-                else
-                    cout << "Nuk u ruajt file-i. Permbajtja:\n" << response << endl;
+                if (response == "File not found" || response == "Permission denied")
+{
+    cout << "SERVER> " << response << endl;
+}
+else
+{
+    if (saveDownloadedFile(filename, response))
+        cout << "File u ruajt lokalish si: " << filename << endl;
+    else
+        cout << "Nuk u ruajt file-i. Permbajtja:\n" << response << endl;
+}
             }
             else
             {
