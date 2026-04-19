@@ -99,27 +99,8 @@ Përveç socket-it kryesor TCP, serveri implementon edhe një **HTTP server të 
 /exit
 ```
 
----
 
-## 6. Ekzekutimi i Projektit
-
-### 6.1 Kompilimi
-
-```bash
-g++ Server.cpp -o server -lws2_32
-g++ Client.cpp -o client -lws2_32
-```
-
-### 6.2 Nisja
-
-```bash
-./server
-./client
-```
-
----
-
-## 7. Konfigurimi
+## 6. Konfigurimi
 
 Parametrat kryesorë:
 
@@ -132,7 +113,7 @@ Parametrat kryesorë:
 ---
 
 
-## 8. Përfundim
+## 7. Përfundim
 
 Ky projekt demonstron në mënyrë praktike:
 
