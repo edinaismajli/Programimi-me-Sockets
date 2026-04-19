@@ -18,9 +18,46 @@ struct client_type
     SOCKET socket;
 };
 
-// Placeholder for client processing function
+// Handle client communication, disconnection and broadcasting
 int process_client(client_type& new_client, vector<client_type>& client_array, thread& t)
 {
+    char buffer[1024];
+
+    while (true)
+    {
+        memset(buffer, 0, sizeof(buffer));
+
+        int bytesReceived = recv(new_client.socket, buffer, sizeof(buffer), 0);
+
+        // Client disconnected or error
+        if (bytesReceived <= 0)
+        {
+            cout << "Client #" << new_client.id << " disconnected." << endl;
+
+            closesocket(new_client.socket);
+            client_array[new_client.id].socket = INVALID_SOCKET;
+
+            break;
+        }
+
+        // Create message
+        string msg = "Client #" + to_string(new_client.id) + ": " + buffer;
+
+        // Print on server
+        cout << msg << endl;
+
+        // Broadcast message to all other clients
+        for (int i = 0; i < client_array.size(); i++)
+        {
+            if (client_array[i].socket != INVALID_SOCKET && i != new_client.id)
+            {
+                send(client_array[i].socket, msg.c_str(), msg.size(), 0);
+            }
+        }
+    }
+
+    // Detach thread after finishing
+    t.detach();
     return 0;
 }
 
@@ -30,7 +67,7 @@ int main()
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-    // Setup addrinfo
+    // Setup address info
     struct addrinfo hints;
     struct addrinfo* server = NULL;
 
@@ -42,6 +79,7 @@ int main()
 
     getaddrinfo(NULL, DEFAULT_PORT, &hints, &server);
 
+    // Create server socket
     cout << "Creating server socket..." << endl;
     SOCKET server_socket = socket(server->ai_family, server->ai_socktype, server->ai_protocol);
 
@@ -53,13 +91,10 @@ int main()
         WSACleanup();
         return -1;
     }
-    else
-    {
-        cout << "Socket created successfully! ID: "
-             << server_socket << endl;
-    }
 
-    // Bind
+    cout << "Socket created successfully! ID: " << server_socket << endl;
+
+    // Bind socket to port
     cout << "Binding socket to port " << DEFAULT_PORT << "..." << endl;
 
     int bindResult = bind(server_socket, server->ai_addr, (int)server->ai_addrlen);
@@ -76,7 +111,7 @@ int main()
 
     cout << "Bind successful!" << endl;
 
-    // Listen on port
+    // Start listening
     cout << "Starting to listen on port " << DEFAULT_PORT << "..." << endl;
 
     int listenResult = listen(server_socket, SOMAXCONN);
@@ -93,9 +128,15 @@ int main()
 
     cout << "Server is now listening!" << endl;
 
+    // Client storage
     vector<client_type> client(MAX_CLIENTS);
     thread my_thread[MAX_CLIENTS];
-    int temp_id = 0;
+
+    // Initialize all client slots as free
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        client[i] = { i, INVALID_SOCKET };
+    }
 
     while (true)
     {
@@ -103,8 +144,20 @@ int main()
 
         if (incoming != INVALID_SOCKET)
         {
-            // Limit clients
-            if (temp_id >= MAX_CLIENTS)
+            int id = -1;
+
+            // Find free slot
+            for (int i = 0; i < MAX_CLIENTS; i++)
+            {
+                if (client[i].socket == INVALID_SOCKET)
+                {
+                    id = i;
+                    break;
+                }
+            }
+
+            // Server full
+            if (id == -1)
             {
                 cout << "Server full! Rejecting client..." << endl;
 
@@ -115,24 +168,25 @@ int main()
                 continue;
             }
 
-            cout << "Client connected! ID: " << temp_id << endl;
+            // Accept client
+            cout << "Client connected! ID: " << id << endl;
 
-            client[temp_id] = { temp_id, incoming };
+            client[id] = { id, incoming };
 
-            string id = to_string(temp_id);
-            send(incoming, id.c_str(), id.size(), 0);
+            string idStr = to_string(id);
+            send(incoming, idStr.c_str(), idStr.size(), 0);
 
-            my_thread[temp_id] = thread(
+            // Start thread for client
+            my_thread[id] = thread(
                 process_client,
-                ref(client[temp_id]),
+                ref(client[id]),
                 ref(client),
-                ref(my_thread[temp_id])
+                ref(my_thread[id])
             );
-
-            temp_id++;
         }
     }
 
     WSACleanup();
     return 0;
 }
+
