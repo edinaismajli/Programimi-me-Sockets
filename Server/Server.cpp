@@ -18,46 +18,9 @@ struct client_type
     SOCKET socket;
 };
 
-// Handle client communication, disconnection and broadcasting
+// Placeholder for client processing function
 int process_client(client_type& new_client, vector<client_type>& client_array, thread& t)
 {
-    char buffer[1024];
-
-    while (true)
-    {
-        memset(buffer, 0, sizeof(buffer));
-
-        int bytesReceived = recv(new_client.socket, buffer, sizeof(buffer), 0);
-
-        // Client disconnected or error
-        if (bytesReceived <= 0)
-        {
-            cout << "Client #" << new_client.id << " disconnected." << endl;
-
-            closesocket(new_client.socket);
-            client_array[new_client.id].socket = INVALID_SOCKET;
-
-            break;
-        }
-
-        // Create message
-        string msg = "Client #" + to_string(new_client.id) + ": " + buffer;
-
-        // Print on server
-        cout << msg << endl;
-
-        // Broadcast message to all other clients
-        for (int i = 0; i < client_array.size(); i++)
-        {
-            if (client_array[i].socket != INVALID_SOCKET && i != new_client.id)
-            {
-                send(client_array[i].socket, msg.c_str(), msg.size(), 0);
-            }
-        }
-    }
-
-    // Detach thread after finishing
-    t.detach();
     return 0;
 }
 
