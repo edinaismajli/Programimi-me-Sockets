@@ -50,18 +50,18 @@ bool sendText(SOCKET sock,const string& text){
     return sendResult != SOCKET_ERROR;
 }
 
-bool reciveText(SOCKER sock,string& response){
+bool receiveText(SOCKET sock,string& response){
     char buf[BUFFER_SIZE];
     ZeroMemory(buf,BUFFER_SIZE);
 
     int bytesReceived =recv(sock,buf,BUFFER_SIZE,0);
 
-    if(bytesRecived>0){
+    if(bytesReceived>0){
         response=string(buf,0,bytesReceived);
         return true;
     }
     else if(bytesReceived==0){
-        response="Serveri e mbylli lidhjen."
+        response="Serveri e mbylli lidhjen.";
         return false;
     }
     else{
@@ -78,7 +78,7 @@ bool uploadFile(SOCKET sock,const string& filename){
         return false;
     }
     string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-    string request="/upload"+filename+"\n"+content;
+    string request="/upload"+filename+ "\n" + content;
 
     if(!sendText(sock,request)){
         cerr<<"Gabim gjate upload-it,Err #"<<WSAGetLastError()<<endl;
@@ -90,7 +90,7 @@ bool uploadFile(SOCKET sock,const string& filename){
 bool saveDownloadedFile(const string& filename,const string& content){
     ofstream outFile(filename,ios::binary);
     if(!outFile.is_open())
-    return false
+    return false;
 
     outFile.write(content.c_str(),content.size());
     outFile.close();
@@ -100,8 +100,8 @@ bool saveDownloadedFile(const string& filename,const string& content){
 
 int main(){
 
-   string ipAdress= "127.0.0.1";
-   int port=8080;
+   string ipAdress= SERVER_IP;
+   int port=SERVER_PORT;
 
    WSADATA data;
     WORD ver = MAKEWORD(2, 2);
@@ -120,13 +120,45 @@ int main(){
     WSACleanup();
     return 1;
  }
+
+cout<<"Zgjedh rolin e klientit (admin/user): ";
+cout<<"1. Admin\"n";
+cout<<"2. read-only user\n";
+cout<<"Zgjedhja: ";
+
+int choice;
+cin>>choice;
+cin.ignore();
+
+string role;
+if(choice==1)
+    role="admin";
+    else
+    role="read-only user";
+
+    DWORD timeout;
+    if(role=="admin")
+        timeout=3000;
+    else
+        timeout=7000;
+
     
+setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,sizeof(timeout));
+
 
  sockaddr_in hint={};
    hint.sin_family=AF_INET;
    hint.sin_port=htons(port);
-  hint.sin_addr.S_un.S_addr=inet_addr(ipAdress.c_str());
 
+hint.sin_addr.S_un.S_addr = inet_addr(ipAdress.c_str());
+
+if (hint.sin_addr.S_un.S_addr == INADDR_NONE)
+{
+    cerr << "IP adresa nuk eshte valide!\n";
+    closesocket(sock);
+    WSACleanup();
+    return 1;
+}
 
   int connResult=connect(sock,(sockaddr*)&hint,sizeof(hint));
   if(connResult==SOCKET_ERROR){
@@ -136,28 +168,97 @@ int main(){
       WSACleanup();
       return 1;
    }
+ 
+   cout<< "Connected to server:"<<ipAdress<<":"<<port<<endl;
+   printMenu(role);
 
-   char buf[4096];
+
    string userInput;
 
-
-   do{
-    cout<<"Send message to server:";
+   while (true)
+   {
+    cout<< ">";
     getline(cin,userInput);
 
-
-    if(userInput.size()>0){
-        int sendResult=send(sock,userInput.c_str(),(int)userInput.size()+1.0);
-        if(sendResult != SOCKET_ERROR){
-            ZeroMemory(buf,4096);
-            int bytesReceived=recv(sock,buf,4096,0);
-            if(vytesReceived>0){
-                cout<<"SERVER>"<<string(buf,0,bytesReceived)<<endl;
-            }
-        }
-
-        }
+    if(userInput.empty()){
+        cout<<"Shkruaj nje messazh ose komandë!\n";
+        continue;
     }
-    while(userInput.size()>0);
+
+    if(userInput=="/exit"){
+       cout << "Klienti po mbyllet...\n";
+        break;;
+    }
+    if(userInput=="/help"){
+         printMenu(role);
+        continue;
    }
 
+   if (role!="admin" && isAdminCommand(userInput)){
+        cout<<"Gabim: ky klient ka vetem read() permission.\n";
+        continue;
+   }
+
+   
+   if (role == "admin" && userInput.rfind("/upload ", 0) == 0)
+        {
+            string filename = userInput.substr(8);
+
+            if (filename.empty())
+            {
+                cout << "Perdorimi: /upload <filename>\n";
+                continue;
+            }
+
+            if (!uploadFile(sock, filename))
+                continue;
+
+            string response;
+            if (receiveText(sock, response))
+                cout << "SERVER> " << response << endl;
+            else
+                cout << response << endl;
+
+            continue;
+        }
+
+        if(!sendText(sock,userInput)){
+            cerr<<"Send failed,Err #"<<WSAGetLastError()<<endl;
+            break;}
+
+        string response;
+        if(!receiveText(sock,response)){  
+            cout<<response<<endl;
+            break;
+        }
+
+        if (role == "admin" && userInput.rfind("/download ", 0) == 0)
+        {
+            string filename = userInput.substr(10);
+
+            if (!filename.empty())
+            {
+                if (saveDownloadedFile(filename, response))
+                    cout << "File u ruajt lokalish si: " << filename << endl;
+                else
+                    cout << "Nuk u ruajt file-i. Permbajtja:\n" << response << endl;
+            }
+            else
+            {
+                cout << "Perdorimi: /download <filename>\n";
+            }
+        }
+        else
+        {
+            cout << "SERVER> " << response << endl;
+        }
+    }
+
+    
+closesocket(sock);
+    WSACleanup();
+    return 0;
+}
+
+
+  
