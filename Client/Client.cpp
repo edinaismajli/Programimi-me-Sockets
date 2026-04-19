@@ -169,8 +169,22 @@ if (hint.sin_addr.S_un.S_addr == INADDR_NONE)
       return 1;
    }
  
-   cout<< "Connected to server:"<<ipAdress<<":"<<port<<endl;
+   cout<< "Connected to server:" << ipAdress<< ":" << port << endl;
+   string introRole = "/role " + role;
+sendText(sock, introRole);
+
+string introResponse;
+if (receiveText(sock, introResponse))
+{
+    cout << "SERVER> " << introResponse << endl;
+}
    printMenu(role);
+
+
+
+
+
+
 
 
    string userInput;
@@ -181,7 +195,7 @@ if (hint.sin_addr.S_un.S_addr == INADDR_NONE)
     getline(cin,userInput);
 
     if(userInput.empty()){
-        cout<<"Shkruaj nje messazh ose komandë!\n";
+        cout<< "Shkruaj nje messazh ose komandë!\n";
         continue;
     }
 
