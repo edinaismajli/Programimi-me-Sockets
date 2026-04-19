@@ -103,7 +103,19 @@ int main()
 
         if (incoming != INVALID_SOCKET)
         {
-            cout << "Client connected!" << endl;
+            // Limit clients
+            if (temp_id >= MAX_CLIENTS)
+            {
+                cout << "Server full! Rejecting client..." << endl;
+
+                string msg = "Server is full";
+                send(incoming, msg.c_str(), msg.size(), 0);
+
+                closesocket(incoming);
+                continue;
+            }
+
+            cout << "Client connected! ID: " << temp_id << endl;
 
             client[temp_id] = { temp_id, incoming };
 
