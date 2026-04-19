@@ -131,15 +131,8 @@ Parametrat kryesorë:
 
 ---
 
-## 8. Kufizimet
 
-- Nuk implementohet autentikim i avancuar (username/password)
-- Nuk ka enkriptim të komunikimit (plaintext TCP)
-- Sistemi është i dizajnuar për përdorim lokal ose në rrjet të vogël
-
----
-
-## 9. Përfundim
+## 8. Përfundim
 
 Ky projekt demonstron në mënyrë praktike:
 
