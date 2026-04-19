@@ -76,6 +76,23 @@ int main()
 
     cout << "Bind successful!" << endl;
 
+    // Listen on port
+    cout << "Starting to listen on port " << DEFAULT_PORT << "..." << endl;
+
+    int listenResult = listen(server_socket, SOMAXCONN);
+
+    if (listenResult == SOCKET_ERROR)
+    {
+        cerr << "Error: Listen failed. Code: "
+             << WSAGetLastError() << endl;
+
+        closesocket(server_socket);
+        WSACleanup();
+        return -1;
+    }
+
+    cout << "Server is now listening!" << endl;
+
     vector<client_type> client(MAX_CLIENTS);
     thread my_thread[MAX_CLIENTS];
     int temp_id = 0;
@@ -86,6 +103,8 @@ int main()
 
         if (incoming != INVALID_SOCKET)
         {
+            cout << "Client connected!" << endl;
+
             client[temp_id] = { temp_id, incoming };
 
             string id = to_string(temp_id);
